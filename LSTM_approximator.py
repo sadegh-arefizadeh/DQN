@@ -1,0 +1,42 @@
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+import torch.nn as nn
+from gym import spaces
+import torch
+class Customlstm(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self,observation_space: spaces.Dict, features_dim: int = 1):
+        super().__init__(observation_space, features_dim)
+
+
+        self.lstm = nn.LSTM(input_size=5, hidden_size=508, num_layers=1, batch_first=True)
+        self.linear_0 = nn.Linear(512, 512)
+        self.activation_1 = nn.GELU()
+        self.linear_1 = nn.Linear(512, 512)
+        self.activation_2 = nn.GELU()
+        self.linear_2 = nn.Linear(512, 512)
+        self.activation_3 = nn.GELU()
+
+
+
+       
+    def forward(self, input):
+        Diction = [input.get(key) for key in ["temp_new", "humid_new", "elem", "humider", "fan"]]
+        x = torch.stack(Diction, -2).permute(0, 2, 1)
+        x, _ = self.lstm(x)
+        x = x[:, -1, :]
+
+        reminder = torch.cat([input.get(key) for key in ["temp_fix", "temp_out", "humid_fix", "humid_out"]],1)
+        x = torch.cat((reminder.cuda(), x), 1)
+        x = self.linear_0(x)
+        x = self.activation_1(x)
+        x = self.linear_1(x)
+        x = self.activation_2(x)
+        x = self.linear_2(x)
+        x = self.activation_3(x)
+        return x
+
